@@ -56,7 +56,7 @@ class AuthRemoteDataSourceMock implements AuthRemoteDataSource {
         id: '1',
         email: email,
         name: 'Test User',
-        phoneNumber: '+1234567890',
+        phoneNumber: '+1234567890', role: '',
       );
       const token = 'mock_jwt_token_12345';
 
