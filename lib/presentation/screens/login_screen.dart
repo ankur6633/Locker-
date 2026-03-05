@@ -6,7 +6,8 @@ import '../../core/utils/validators.dart';
 import '../viewmodels/auth_view_model.dart';
 import '../widgets/loading_widget.dart';
 
-/// Login screen
+enum LoginRole { user, admin }
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,9 +17,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+
+  final _emailController =
+  TextEditingController(text: "test@example.com");
+  final _passwordController =
+  TextEditingController(text: "password123");
+
   bool _obscurePassword = true;
+  LoginRole _selectedRole = LoginRole.user;
 
   @override
   void dispose() {
@@ -28,25 +34,28 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final authViewModel = context.read<AuthViewModel>();
+
     final success = await authViewModel.login(
       _emailController.text.trim(),
       _passwordController.text,
+      role: _selectedRole.name, // 🔥 pass role
     );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacementNamed(AppConstants.dashboardRoute);
+      Navigator.of(context)
+          .pushReplacementNamed(AppConstants.dashboardRoute);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authViewModel.errorMessage ?? AppStrings.loginFailed),
-          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+              authViewModel.errorMessage ?? AppStrings.loginFailed),
+          backgroundColor:
+          Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -55,87 +64,172 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    AppStrings.appName,
-                    style: Theme.of(context).textTheme.displaySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.email,
-                      hintText: AppStrings.enterEmail,
-                      prefixIcon: const Icon(Icons.email_outlined),
-                    ),
-                    validator: Validators.email,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.password,
-                      hintText: AppStrings.enterPassword,
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF1E3A8A),
+              Color(0xFF3B82F6),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Container(
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    )
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(Icons.lock_outline_rounded,
+                          size: 70),
+                      const SizedBox(height: 20),
+
+                      /// 🔥 ROLE SELECTOR
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildRoleButton(
+                                "User", LoginRole.user),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildRoleButton(
+                                "Admin", LoginRole.admin),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: "Email",
+                          prefixIcon:
+                          const Icon(Icons.email_outlined),
+                          filled: true,
+                          fillColor:
+                          Colors.grey.withOpacity(0.1),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
+                        validator: Validators.email,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: "Password",
+                          prefixIcon:
+                          const Icon(Icons.lock_outline),
+                          filled: true,
+                          fillColor:
+                          Colors.grey.withOpacity(0.1),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword =
+                                !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: Validators.password,
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      Consumer<AuthViewModel>(
+                        builder: (context, viewModel, child) {
+                          if (viewModel.isLoading) {
+                            return const LoadingWidget();
+                          }
+
+                          return ElevatedButton(
+                            onPressed: _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              padding:
+                              const EdgeInsets.symmetric(
+                                  vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              _selectedRole == LoginRole.admin
+                                  ? "Login as Admin"
+                                  : "Login as User",
+                            ),
+                          );
                         },
                       ),
-                    ),
-                    validator: Validators.password,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    ],
                   ),
-                  const SizedBox(height: 32),
-                  Consumer<AuthViewModel>(
-                    builder: (context, viewModel, child) {
-                      if (viewModel.isLoading) {
-                        return const LoadingWidget();
-                      }
-
-                      return ElevatedButton(
-                        onPressed: _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(AppStrings.login),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Demo: test@example.com / password123',
-                    style: Theme.of(context).textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleButton(String text, LoginRole role) {
+    final isSelected = _selectedRole == role;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedRole = role;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.blue
+              : Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

@@ -3,213 +3,211 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../viewmodels/admin_dashboard_viewmodel.dart';
 
-/// Admin Dashboard Screen
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final currencyFormat =
+    NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
-      body: Column(
-        children: [
-          // Header with Refresh Button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
-                  width: 1,
+      body: Consumer<AdminDashboardViewModel>(
+        builder: (context, viewModel, child) {
+          if (viewModel.isLoading && viewModel.stats == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (viewModel.errorMessage != null) {
+            return _buildErrorState(context, viewModel);
+          }
+
+          final stats = viewModel.stats ?? {};
+
+          final items = [
+            _StatItem("Total Users",
+                "${stats['totalUsers'] ?? 0}", Icons.people_rounded, Colors.blue),
+            _StatItem("Active Users",
+                "${stats['activeUsers'] ?? 0}", Icons.verified_user_rounded, Colors.green),
+            _StatItem("Total EMI Records",
+                "${stats['totalEmis'] ?? 0}", Icons.account_balance_wallet_rounded, Colors.purple),
+            _StatItem("Locked Devices",
+                "${stats['lockedEmis'] ?? 0}", Icons.lock_rounded, Colors.red),
+            _StatItem("Overdue EMI",
+                "${stats['overdueEmis'] ?? 0}", Icons.warning_rounded, Colors.orange),
+            _StatItem("Total EMI Amount",
+                currencyFormat.format(stats['totalEmiAmount'] ?? 0),
+                Icons.currency_rupee_rounded, Colors.teal),
+            _StatItem("Total Paid",
+                currencyFormat.format(stats['totalPaid'] ?? 0),
+                Icons.check_circle_rounded, Colors.green),
+            _StatItem("Total Remaining",
+                currencyFormat.format(stats['totalRemaining'] ?? 0),
+                Icons.pending_rounded, Colors.amber),
+          ];
+
+          return Column(
+            children: [
+              _buildHeader(context, viewModel),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    gridDelegate:
+                    SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount:
+                      MediaQuery.of(context).size.width > 1200 ? 3 : 2,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      childAspectRatio: 1.7,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _buildPremiumStatCard(context, item);
+                    },
+                  ),
                 ),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Dashboard',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () {
-                    context.read<AdminDashboardViewModel>().refresh();
-                  },
-                  tooltip: 'Refresh',
-                ),
-              ],
-            ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+      BuildContext context, AdminDashboardViewModel viewModel) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Dashboard Overview",
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          // Content
-          Expanded(
-            child: Consumer<AdminDashboardViewModel>(
-              builder: (context, viewModel, child) {
-                if (viewModel.isLoading && viewModel.stats == null) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (viewModel.errorMessage != null) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text(viewModel.errorMessage!),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => viewModel.refresh(),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final stats = viewModel.stats ?? {};
-                final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Stats Grid
-                      GridView.count(
-                        crossAxisCount: _getCrossAxisCount(context),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.5,
-                        children: [
-                          _buildStatCard(
-                            context,
-                            title: 'Total Users',
-                            value: '${stats['totalUsers'] ?? 0}',
-                            icon: Icons.people_rounded,
-                            color: Colors.blue,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Active Users',
-                            value: '${stats['activeUsers'] ?? 0}',
-                            icon: Icons.verified_user_rounded,
-                            color: Colors.green,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Total EMI Records',
-                            value: '${stats['totalEmis'] ?? 0}',
-                            icon: Icons.account_balance_wallet_rounded,
-                            color: Colors.purple,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Locked Devices',
-                            value: '${stats['lockedEmis'] ?? 0}',
-                            icon: Icons.lock_rounded,
-                            color: Colors.red,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Overdue EMI',
-                            value: '${stats['overdueEmis'] ?? 0}',
-                            icon: Icons.warning_rounded,
-                            color: Colors.orange,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Total EMI Amount',
-                            value: currencyFormat.format(stats['totalEmiAmount'] ?? 0),
-                            icon: Icons.currency_rupee_rounded,
-                            color: Colors.teal,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Total Paid',
-                            value: currencyFormat.format(stats['totalPaid'] ?? 0),
-                            icon: Icons.check_circle_rounded,
-                            color: Colors.green,
-                          ),
-                          _buildStatCard(
-                            context,
-                            title: 'Total Remaining',
-                            value: currencyFormat.format(stats['totalRemaining'] ?? 0),
-                            icon: Icons.pending_rounded,
-                            color: Colors.amber,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+          ElevatedButton.icon(
+            onPressed: () => viewModel.refresh(),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text("Refresh"),
           ),
         ],
       ),
     );
   }
 
-  int _getCrossAxisCount(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 4;
-    if (width > 1000) return 3;
-    if (width > 600) return 2;
-    return 1;
+  Widget _buildErrorState(
+      BuildContext context, AdminDashboardViewModel viewModel) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline,
+              size: 64, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(viewModel.errorMessage ?? "Something went wrong"),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => viewModel.refresh(),
+            child: const Text("Retry"),
+          )
+        ],
+      ),
+    );
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 2,
+  Widget _buildPremiumStatCard(
+      BuildContext context, _StatItem item) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            item.color.withOpacity(0.18),
+            item.color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: item.color.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(item.icon,
+                      color: item.color, size: 20),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+            const Spacer(), // 🔥 Prevent overflow
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                item.value,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: item.color,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _StatItem {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  _StatItem(this.title, this.value, this.icon, this.color);
 }
