@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/constants/app_constants.dart';
 import '../../presentation/screens/dashboard_screen.dart';
 import '../viewmodels/admin_dashboard_viewmodel.dart';
 import '../viewmodels/admin_users_viewmodel.dart';
@@ -8,7 +10,6 @@ import 'admin_dashboard_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_emi_screen.dart';
 import 'admin_lock_control_screen.dart';
- // 👈 add your user home import
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -33,8 +34,33 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeData();
+      _checkAdminAccess();
     });
+  }
+
+  Future<void> _checkAdminAccess() async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString(AppConstants.userRoleKey);
+    
+    if (role != 'admin') {
+      // User is not admin, redirect to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access denied. Admin login required.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppConstants.loginRoute,
+          (route) => false,
+        );
+      }
+      return;
+    }
+    
+    // User is admin, proceed with initialization
+    _initializeData();
   }
 
   Future<void> _initializeData() async {
@@ -102,12 +128,19 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: "Logout",
-            onPressed: () {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                    (route) => false,
-              );
+            onPressed: () async {
+              // Clear user role and login email/mobile
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove(AppConstants.userRoleKey);
+              await prefs.remove(AppConstants.loginEmailOrMobileKey);
+              
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppConstants.loginRoute,
+                  (route) => false,
+                );
+              }
             },
           ),
         ],

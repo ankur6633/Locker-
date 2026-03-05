@@ -14,6 +14,8 @@ class AppConstants {
   static const String userKey = 'user_data';
   static const String emiStatusKey = 'emi_status';
   static const String isLoggedInKey = 'is_logged_in';
+  static const String loginEmailOrMobileKey = 'login_email_or_mobile';
+  static const String userRoleKey = 'user_role'; // 'user' or 'admin'
 
   // Method Channel Names
   static const String deviceControlChannel = 'com.emilocker.device_control';

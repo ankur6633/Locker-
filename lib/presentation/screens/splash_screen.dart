@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/di/injection_container.dart';
@@ -8,6 +9,8 @@ import '../../domain/repositories/emi_repository.dart';
 import '../../domain/repositories/device_control_repository.dart';
 import '../../domain/use_cases/emi/check_emi_status_use_case.dart';
 import '../../domain/use_cases/emi/get_emi_details_use_case.dart';
+import '../../admin/services/admin_data_service.dart';
+import '../../admin/models/hive_user_model.dart';
 import '../viewmodels/locker_view_model.dart';
 import 'lock_screen.dart';
 
@@ -32,6 +35,14 @@ class _SplashScreenState extends State<SplashScreen> {
     final authRepo = sl<AuthRepository>();
     final emiRepo = sl<EmiRepository>();
     final deviceControlRepo = sl<DeviceControlRepository>();
+    
+    // Initialize admin data service (it's already initialized in main.dart, but we need instance)
+    final adminDataService = AdminDataService();
+    try {
+      await adminDataService.init();
+    } catch (e) {
+      // Already initialized, continue
+    }
 
     // Check if user is logged in
     final isLoggedIn = await authRepo.isLoggedIn();
@@ -44,6 +55,24 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
+    // Get login email or mobile from stored preferences
+    final prefs = await SharedPreferences.getInstance();
+    final loginEmailOrMobile = prefs.getString(AppConstants.loginEmailOrMobileKey);
+
+    // Also try to get from auth repository
+    final userResult = await authRepo.getCurrentUser();
+    final userEmail = userResult.user?.email;
+    final userMobile = userResult.user?.phoneNumber;
+
+    // Check if device is locked by admin (by email OR mobile)
+    bool isLockedByAdmin = false;
+    String? emailOrMobileToCheck = loginEmailOrMobile ?? userEmail ?? userMobile;
+    
+    if (emailOrMobileToCheck != null) {
+      final adminUser = adminDataService.getUserByEmailOrMobile(emailOrMobileToCheck);
+      isLockedByAdmin = adminUser?.deviceLockedByAdmin ?? false;
+    }
+
     // Check EMI status
     final lockerViewModel = LockerViewModel(
       CheckEmiStatusUseCase(emiRepo),
@@ -54,7 +83,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    if (isOverdue) {
+    // If locked by admin OR EMI overdue, show lock screen
+    if (isLockedByAdmin || isOverdue) {
       // Enable kiosk mode and prevent screenshots
       await deviceControlRepo.enableKioskMode();
       await deviceControlRepo.preventScreenshot();
@@ -65,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
           MaterialPageRoute(
             builder: (_) => ChangeNotifierProvider.value(
               value: lockerViewModel,
-              child: const LockScreen(),
+              child: LockScreen(isLockedByAdmin: isLockedByAdmin),
             ),
           ),
         );

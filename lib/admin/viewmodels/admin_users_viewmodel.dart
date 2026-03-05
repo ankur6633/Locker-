@@ -39,6 +39,7 @@ class AdminUsersViewModel extends ChangeNotifier {
     required String name,
     required String email,
     required String phone,
+    required String password,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -49,6 +50,7 @@ class AdminUsersViewModel extends ChangeNotifier {
         name: name,
         email: email,
         phone: phone,
+        password: password,
       );
       await loadUsers();
       return true;
@@ -87,6 +89,44 @@ class AdminUsersViewModel extends ChangeNotifier {
       user.isActive = !user.isActive;
       await _dataService.updateUser(user);
       await loadUsers();
+    }
+  }
+
+  /// Lock/Unlock device by email
+  Future<bool> lockDeviceByEmail(String email, bool lock) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _dataService.lockDeviceByEmail(email, lock);
+      await loadUsers();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Failed to ${lock ? 'lock' : 'unlock'} device: $e';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Lock/Unlock device by email OR mobile
+  Future<bool> lockDeviceByEmailOrMobile(String emailOrMobile, bool lock) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _dataService.lockDeviceByEmailOrMobile(emailOrMobile, lock);
+      await loadUsers();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Failed to ${lock ? 'lock' : 'unlock'} device: $e';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

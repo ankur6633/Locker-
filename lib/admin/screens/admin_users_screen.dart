@@ -205,6 +205,30 @@ class AdminUsersScreen extends StatelessWidget {
             PopupMenuButton(
               itemBuilder: (context) => [
                 PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(
+                        user.deviceLockedByAdmin ? Icons.lock_open_rounded : Icons.lock_rounded,
+                        size: 20,
+                        color: user.deviceLockedByAdmin ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        user.deviceLockedByAdmin ? 'Unlock Device' : 'Lock Device',
+                        style: TextStyle(
+                          color: user.deviceLockedByAdmin ? Colors.green : Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    Future.delayed(
+                      Duration.zero,
+                      () => _toggleDeviceLock(context, user),
+                    );
+                  },
+                ),
+                PopupMenuItem(
                   child: const Row(
                     children: [
                       Icon(Icons.toggle_on_rounded, size: 20),
@@ -246,6 +270,74 @@ class AdminUsersScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => const AdminAddUserDialog(),
+    );
+  }
+
+  void _toggleDeviceLock(BuildContext context, HiveUserModel user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(user.deviceLockedByAdmin ? 'Unlock Device' : 'Lock Device'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to ${user.deviceLockedByAdmin ? 'unlock' : 'lock'} device for this user?',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Email: ${user.email}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'Mobile: ${user.phone}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'User can login with email OR mobile number.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Lock by email (will also lock by mobile since same user)
+              final success = await context.read<AdminUsersViewModel>().lockDeviceByEmailOrMobile(
+                    user.email,
+                    !user.deviceLockedByAdmin,
+                  );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Device ${user.deviceLockedByAdmin ? 'unlocked' : 'locked'} successfully. User can login with email (${user.email}) or mobile (${user.phone})'
+                          : 'Failed to ${user.deviceLockedByAdmin ? 'unlock' : 'lock'} device',
+                    ),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: user.deviceLockedByAdmin ? Colors.green : Colors.red,
+            ),
+            child: Text(user.deviceLockedByAdmin ? 'Unlock' : 'Lock'),
+          ),
+        ],
+      ),
     );
   }
 

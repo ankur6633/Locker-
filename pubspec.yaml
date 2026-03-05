@@ -44,6 +44,7 @@ dependencies:
   flutter_svg: ^2.0.9
   lottie: ^2.7.0
   shimmer: ^3.0.0
+  mobile_scanner: ^5.2.3
   
   cupertino_icons: ^1.0.8
   firebase_auth: ^4.20.0

@@ -16,6 +16,7 @@ import 'presentation/screens/emi_schedule_screen.dart';
 import 'presentation/screens/payment_screen.dart';
 import 'presentation/screens/create_mandate_screen.dart';
 import 'presentation/screens/mandate_list_screen.dart';
+import 'presentation/screens/lock_screen.dart';
 import 'admin/admin_app.dart';
 import 'admin/services/admin_data_service.dart';
 import 'admin/viewmodels/admin_dashboard_viewmodel.dart';
@@ -87,6 +88,7 @@ class MyApp extends StatelessWidget {
           AppConstants.createMandateRoute: (_) => const CreateMandateScreen(),
           AppConstants.mandateListRoute: (_) => const MandateListScreen(),
           AppConstants.adminPanelRoute: (_) => const AdminMainScreen(),
+          AppConstants.lockScreenRoute: (_) => const LockScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == AppConstants.paymentRoute) {

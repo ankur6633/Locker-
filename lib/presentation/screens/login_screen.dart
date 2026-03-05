@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../core/constants/app_strings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/di/injection_container.dart';
 import '../../core/utils/validators.dart';
-import '../viewmodels/auth_view_model.dart';
-import '../widgets/loading_widget.dart';
+import '../../admin/services/admin_data_service.dart';
+import '../../domain/repositories/device_control_repository.dart';
 
 enum LoginRole { user, admin }
 
@@ -36,28 +36,49 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authViewModel = context.read<AuthViewModel>();
+    final emailOrMobile = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final prefs = await SharedPreferences.getInstance();
+    final adminDataService = AdminDataService();
+    await adminDataService.init();
+    final deviceControlRepo = sl<DeviceControlRepository>();
 
-    final success = await authViewModel.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-      role: _selectedRole.name, // 🔥 pass role
-    );
-
-    if (!mounted) return;
-
-    if (success) {
+    if (_selectedRole == LoginRole.admin) {
+      // Admin login - simple check (can be enhanced later)
+      await prefs.setString(AppConstants.loginEmailOrMobileKey, emailOrMobile);
+      await prefs.setString(AppConstants.userRoleKey, 'admin');
       Navigator.of(context)
-          .pushReplacementNamed(AppConstants.dashboardRoute);
+          .pushReplacementNamed(AppConstants.adminPanelRoute);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              authViewModel.errorMessage ?? AppStrings.loginFailed),
-          backgroundColor:
-          Theme.of(context).colorScheme.error,
-        ),
-      );
+      // User login - verify credentials from admin users
+      final user = adminDataService.verifyUserLogin(emailOrMobile, password);
+      
+      if (user == null) {
+        // Invalid credentials
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid email/mobile or password'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Valid credentials - store login info
+      await prefs.setString(AppConstants.loginEmailOrMobileKey, emailOrMobile);
+      await prefs.setString(AppConstants.userRoleKey, 'user');
+
+      // Enable kiosk mode and lock device
+      await deviceControlRepo.enableKioskMode();
+      await deviceControlRepo.preventScreenshot();
+
+      // Navigate to lock screen
+      if (mounted) {
+        Navigator.of(context)
+            .pushReplacementNamed(AppConstants.lockScreenRoute);
+      }
     }
   }
 
@@ -120,9 +141,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
-                          labelText: "Email",
+                          labelText: "Email or Mobile Number",
+                          hintText: "Enter email or mobile number",
                           prefixIcon:
-                          const Icon(Icons.email_outlined),
+                          const Icon(Icons.person_outline),
                           filled: true,
                           fillColor:
                           Colors.grey.withOpacity(0.1),
@@ -132,7 +154,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderSide: BorderSide.none,
                           ),
                         ),
-                        validator: Validators.email,
+                        keyboardType: TextInputType.text,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter email or mobile number';
+                          }
+                          // Check if it's email or mobile
+                          final isEmail = value.contains('@');
+                          final isMobile = RegExp(r'^[0-9]{10}$').hasMatch(value.replaceAll(RegExp(r'[^0-9]'), ''));
+                          if (!isEmail && !isMobile) {
+                            return 'Please enter valid email or 10-digit mobile number';
+                          }
+                          return null;
+                        },
                       ),
 
                       const SizedBox(height: 20),
@@ -171,30 +205,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 30),
 
-                      Consumer<AuthViewModel>(
-                        builder: (context, viewModel, child) {
-                          if (viewModel.isLoading) {
-                            return const LoadingWidget();
-                          }
-
-                          return ElevatedButton(
-                            onPressed: _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              padding:
-                              const EdgeInsets.symmetric(
-                                  vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              _selectedRole == LoginRole.admin
-                                  ? "Login as Admin"
-                                  : "Login as User",
-                            ),
-                          );
-                        },
+                      ElevatedButton(
+                        onPressed: _handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          padding:
+                          const EdgeInsets.symmetric(
+                              vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          _selectedRole == LoginRole.admin
+                              ? "Login as Admin"
+                              : "Login as User",
+                        ),
                       ),
                     ],
                   ),

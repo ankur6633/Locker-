@@ -11,10 +11,17 @@ class AdminDataService {
 
   Box<HiveUserModel>? _usersBox;
   Box<HiveEmiModel>? _emiBox;
+  bool _isInitialized = false;
 
   /// Initialize Hive boxes
   Future<void> init() async {
-    await Hive.initFlutter();
+    if (_isInitialized) return;
+    
+    try {
+      await Hive.initFlutter();
+    } catch (e) {
+      // Already initialized, continue
+    }
     
     // Register adapters - Using TypeAdapters instead of generated adapters for now
     if (!Hive.isAdapterRegistered(0)) {
@@ -25,8 +32,19 @@ class AdminDataService {
     }
 
     // Open boxes
-    _usersBox = await Hive.openBox<HiveUserModel>(_usersBoxName);
-    _emiBox = await Hive.openBox<HiveEmiModel>(_emiBoxName);
+    if (!Hive.isBoxOpen(_usersBoxName)) {
+      _usersBox = await Hive.openBox<HiveUserModel>(_usersBoxName);
+    } else {
+      _usersBox = Hive.box<HiveUserModel>(_usersBoxName);
+    }
+    
+    if (!Hive.isBoxOpen(_emiBoxName)) {
+      _emiBox = await Hive.openBox<HiveEmiModel>(_emiBoxName);
+    } else {
+      _emiBox = Hive.box<HiveEmiModel>(_emiBoxName);
+    }
+    
+    _isInitialized = true;
   }
 
   // ============ User Operations ============
@@ -36,6 +54,7 @@ class AdminDataService {
     required String name,
     required String email,
     required String phone,
+    required String password,
   }) async {
     if (_usersBox == null) {
       throw StateError('Hive box not initialized. Call init() first.');
@@ -46,12 +65,30 @@ class AdminDataService {
       name: name,
       email: email,
       phone: phone,
+      password: password,
       createdAt: DateTime.now(),
       isActive: true,
     );
 
     await _usersBox!.put(userId, user);
     return userId;
+  }
+
+  /// Verify user login credentials
+  HiveUserModel? verifyUserLogin(String emailOrMobile, String password) {
+    if (_usersBox == null) {
+      return null;
+    }
+    try {
+      final user = _usersBox!.values.firstWhere(
+        (u) => (u.email == emailOrMobile || u.phone == emailOrMobile) && 
+               u.password == password && 
+               u.isActive,
+      );
+      return user;
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Get all users
@@ -89,6 +126,78 @@ class AdminDataService {
       await _emiBox!.delete(emi.id);
     }
     await _usersBox!.delete(userId);
+  }
+
+  /// Lock/Unlock device by email
+  Future<void> lockDeviceByEmail(String email, bool lock) async {
+    if (_usersBox == null) {
+      throw StateError('Hive box not initialized. Call init() first.');
+    }
+    try {
+      final user = _usersBox!.values.firstWhere((u) => u.email == email);
+      user.deviceLockedByAdmin = lock;
+      await updateUser(user);
+      
+      // Also lock/unlock associated EMI if exists
+      if (user.emiId != null) {
+        final emi = getEmiById(user.emiId!);
+        if (emi != null) {
+          await toggleEmiLock(emi.id, lock);
+        }
+      }
+    } catch (e) {
+      throw StateError('User with email $email not found');
+    }
+  }
+
+  /// Lock/Unlock device by email OR mobile number
+  Future<void> lockDeviceByEmailOrMobile(String emailOrMobile, bool lock) async {
+    if (_usersBox == null) {
+      throw StateError('Hive box not initialized. Call init() first.');
+    }
+    try {
+      final user = _usersBox!.values.firstWhere(
+        (u) => u.email == emailOrMobile || u.phone == emailOrMobile,
+      );
+      user.deviceLockedByAdmin = lock;
+      await updateUser(user);
+      
+      // Also lock/unlock associated EMI if exists
+      if (user.emiId != null) {
+        final emi = getEmiById(user.emiId!);
+        if (emi != null) {
+          await toggleEmiLock(emi.id, lock);
+        }
+      }
+    } catch (e) {
+      throw StateError('User with email or mobile $emailOrMobile not found');
+    }
+  }
+
+  /// Get user by email
+  HiveUserModel? getUserByEmail(String email) {
+    if (_usersBox == null) {
+      return null;
+    }
+    try {
+      return _usersBox!.values.firstWhere((u) => u.email == email);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get user by email OR mobile number
+  HiveUserModel? getUserByEmailOrMobile(String emailOrMobile) {
+    if (_usersBox == null) {
+      return null;
+    }
+    try {
+      return _usersBox!.values.firstWhere(
+        (u) => u.email == emailOrMobile || u.phone == emailOrMobile,
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   // ============ EMI Operations ============
